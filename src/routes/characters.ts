@@ -11,6 +11,9 @@ const characterSchema = z.object({
   className: z.string().optional(),
   level: z.number().int().min(1).optional(),
   exp: z.number().int().min(0).optional(),
+  weaponSkills: z
+    .array(z.object({ weapon: z.string(), rank: z.string() }))
+    .optional(),
 });
 
 const updateSchema = z.object({
@@ -55,6 +58,7 @@ export async function characterRoutes(fastify: FastifyInstance) {
         className: body.className ?? null,
         level: body.level ?? 1,
         exp: body.exp ?? 0,
+        weaponSkills: body.weaponSkills ?? undefined,
         campaignId: params.id,
       },
       include: { owner: { select: { id: true, displayName: true } } },

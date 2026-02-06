@@ -10,7 +10,7 @@ export async function classRoutes(fastify: FastifyInstance) {
     }
 
     const classes = await prisma.gameClass.findMany({
-      select: { id: true, name: true },
+      select: { id: true, name: true, baseStats: true, weaponRanks: true },
       orderBy: { name: "asc" },
     });
 

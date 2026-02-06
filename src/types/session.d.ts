@@ -1,7 +1,7 @@
 import "@fastify/session";
 
-declare module "@fastify/session" {
-  interface SessionData {
+declare module "fastify" {
+  interface Session {
     userId?: string;
   }
 }

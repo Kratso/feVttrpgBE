@@ -27,11 +27,13 @@ export async function campaignRoutes(fastify: FastifyInstance) {
     });
 
     reply.send({
-      campaigns: memberships.map((m) => ({
+      campaigns: memberships.map(
+        (m: { campaign: { id: string; name: string }; role: "DM" | "PLAYER" }) => ({
         id: m.campaign.id,
         name: m.campaign.name,
         role: m.role,
-      })),
+      })
+      ),
     });
   });
 

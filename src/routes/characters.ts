@@ -7,6 +7,7 @@ const characterSchema = z.object({
   name: z.string().min(2),
   stats: z.record(z.string(), z.number()),
   ownerId: z.string().optional(),
+  kind: z.enum(["PLAYER", "NPC", "ENEMY"]).optional(),
 });
 
 const updateSchema = z.object({
@@ -39,13 +40,15 @@ export async function characterRoutes(fastify: FastifyInstance) {
     }
 
     const body = characterSchema.parse(request.body);
-    const ownerId = body.ownerId ?? dm.userId;
+    const kind = body.kind ?? "PLAYER";
+    const ownerId = kind === "PLAYER" ? body.ownerId ?? dm.userId : null;
 
     const character = await prisma.character.create({
       data: {
         name: body.name,
         stats: body.stats,
         ownerId,
+        kind,
         campaignId: params.id,
       },
       include: { owner: { select: { id: true, displayName: true } } },

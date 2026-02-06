@@ -8,6 +8,9 @@ const characterSchema = z.object({
   stats: z.record(z.string(), z.number()),
   ownerId: z.string().optional(),
   kind: z.enum(["PLAYER", "NPC", "ENEMY"]).optional(),
+  className: z.string().optional(),
+  level: z.number().int().min(1).optional(),
+  exp: z.number().int().min(0).optional(),
 });
 
 const updateSchema = z.object({
@@ -49,6 +52,9 @@ export async function characterRoutes(fastify: FastifyInstance) {
         stats: body.stats,
         ownerId,
         kind,
+        className: body.className ?? null,
+        level: body.level ?? 1,
+        exp: body.exp ?? 0,
         campaignId: params.id,
       },
       include: { owner: { select: { id: true, displayName: true } } },

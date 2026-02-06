@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CampaignRole {
+  DM
+  PLAYER
+}
+
+model User {
+  id           String             @id @default(cuid())
+  email        String             @unique
+  passwordHash String
+  displayName  String
+  createdAt    DateTime           @default(now())
+
+  campaigns    CampaignMember[]
+  characters   Character[]
+  created      Campaign[]         @relation("CreatedCampaigns")
+}
+
+model Campaign {
+  id          String             @id @default(cuid())
+  name        String
+  createdAt   DateTime           @default(now())
+  createdById String
+  createdBy   User               @relation("CreatedCampaigns", fields: [createdById], references: [id])
+
+  members     CampaignMember[]
+  characters  Character[]
+  maps        Map[]
+}
+
+model CampaignMember {
+  id          String        @id @default(cuid())
+  userId      String
+  campaignId  String
+  role        CampaignRole  @default(PLAYER)
+
+  user        User          @relation(fields: [userId], references: [id])
+  campaign    Campaign      @relation(fields: [campaignId], references: [id])
+
+  @@unique([userId, campaignId])
+}
+
+model Character {
+  id          String    @id @default(cuid())
+  name        String
+  stats       Json
+  createdAt   DateTime  @default(now())
+
+  ownerId     String
+  campaignId  String
+
+  owner       User      @relation(fields: [ownerId], references: [id])
+  campaign    Campaign  @relation(fields: [campaignId], references: [id])
+}
+
+model Map {
+  id          String    @id @default(cuid())
+  name        String
+  imageUrl    String
+  gridSize    Int       @default(50)
+  gridOffsetX Int       @default(0)
+  gridOffsetY Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  campaignId  String
+  campaign    Campaign  @relation(fields: [campaignId], references: [id])
+
+  tokens      Token[]
+}
+
+model Token {
+  id        String   @id @default(cuid())
+  label     String
+  x         Int
+  y         Int
+  color     String   @default("#f43f5e")
+  createdAt DateTime @default(now())
+
+  mapId     String
+  map       Map      @relation(fields: [mapId], references: [id])
+}

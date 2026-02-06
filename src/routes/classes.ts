@@ -10,7 +10,20 @@ export async function classRoutes(fastify: FastifyInstance) {
     }
 
     const classes = await prisma.gameClass.findMany({
-      select: { id: true, name: true, baseStats: true, weaponRanks: true, promotesTo: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        baseStats: true,
+        growths: true,
+        maxStats: true,
+        weaponRanks: true,
+        promotesTo: true,
+        skills: true,
+        types: true,
+        powerBonus: true,
+        expBonus: true,
+      },
       orderBy: { name: "asc" },
     });
 

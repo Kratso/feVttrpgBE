@@ -18,6 +18,16 @@ enum CharacterKind {
   ENEMY
 }
 
+enum DamageType {
+  PHYSICAL
+  MAGICAL
+}
+
+enum ItemCategory {
+  ITEM
+  WEAPON
+}
+
 model User {
   id           String             @id @default(cuid())
   email        String             @unique
@@ -59,13 +69,95 @@ model Character {
   name        String
   stats       Json
   kind        CharacterKind @default(PLAYER)
+  exp         Int       @default(0)
+  level       Int       @default(1)
+  className   String?
+  weaponSkills Json?
   createdAt   DateTime  @default(now())
 
   ownerId     String?
   campaignId  String
+  classId     String?
 
   owner       User?     @relation(fields: [ownerId], references: [id])
   campaign    Campaign  @relation(fields: [campaignId], references: [id])
+  class       GameClass? @relation(fields: [classId], references: [id])
+  skills      CharacterSkill[]
+  inventory   CharacterItem[]
+}
+
+model GameClass {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  description  String?
+  growths      Json
+  baseStats    Json
+  maxStats     Json
+  weaponRanks  Json
+  promotesTo   Json
+  skills       Json
+  types        Json
+  powerBonus   Int
+  expBonus     Int
+
+  characters   Character[]
+}
+
+model Skill {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  activation  String?
+
+  characters  CharacterSkill[]
+}
+
+model Item {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        String
+  category    ItemCategory @default(ITEM)
+  damageType  DamageType?
+  weaponRank  String?
+  might       Int?
+  hit         Int?
+  crit        Int?
+  weight      Int?
+  minRange    Int?
+  maxRange    Int?
+  rangeFormula String?
+  weaponExp   Int?
+  effectiveness Json?
+  bonus       Json?
+  uses        Int?
+  price       Int?
+  description String?
+
+  characters  CharacterItem[]
+}
+
+model CharacterSkill {
+  id           String   @id @default(cuid())
+  characterId  String
+  skillId      String
+
+  character    Character @relation(fields: [characterId], references: [id])
+  skill        Skill     @relation(fields: [skillId], references: [id])
+
+  @@unique([characterId, skillId])
+}
+
+model CharacterItem {
+  id           String   @id @default(cuid())
+  characterId  String
+  itemId       String
+  equipped     Boolean  @default(false)
+
+  character    Character @relation(fields: [characterId], references: [id])
+  item         Item      @relation(fields: [itemId], references: [id])
+
+  @@index([characterId])
+  @@unique([characterId, itemId])
 }
 
 model Map {

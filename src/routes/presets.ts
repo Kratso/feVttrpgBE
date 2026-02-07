@@ -7,8 +7,8 @@ const tileGridSchema = z.array(z.array(z.string().nullable()));
 
 const presetSchema = z.object({
   name: z.string().min(2),
-  tileCountX: z.number().int().min(5).max(200),
-  tileCountY: z.number().int().min(5).max(200),
+  tileCountX: z.number().int().min(1).max(200),
+  tileCountY: z.number().int().min(1).max(200),
   tileGrid: tileGridSchema,
 });
 

@@ -3,6 +3,8 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import fastifyCookie from "@fastify/cookie";
 import fastifySession from "@fastify/session";
+import swagger from "@fastify/swagger";
+import swaggerUi from "@fastify/swagger-ui";
 import { ZodError } from "zod";
 import { registerRedis } from "./plugins/redis";
 import { registerSession } from "./plugins/session";
@@ -47,6 +49,33 @@ export async function buildApp(options: AppOptions = {}) {
     await registerRedis(app);
     await registerSession(app);
   }
+
+  await app.register(swagger, {
+    openapi: {
+      info: {
+        title: "FeVTTRPG API",
+        description: "Backend API for campaigns, characters, items, maps, and auth.",
+        version: "1.0.0",
+      },
+      components: {
+        securitySchemes: {
+          sessionCookie: {
+            type: "apiKey",
+            in: "cookie",
+            name: "sessionId",
+          },
+        },
+      },
+    },
+  });
+
+  await app.register(swaggerUi, {
+    routePrefix: "/docs",
+    uiConfig: {
+      docExpansion: "list",
+      deepLinking: false,
+    },
+  });
 
   await registerRoutes(app);
 

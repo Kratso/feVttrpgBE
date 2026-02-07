@@ -50,4 +50,29 @@ describe("item routes", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().items).toHaveLength(1);
   });
+
+  it("orders items by name", async () => {
+    const { cookie } = await registerUser(app, {
+      email: "items-order@test.com",
+      password: "password123",
+      displayName: "Items Order",
+    });
+
+    await prisma.item.createMany({
+      data: [
+        { name: "Steel Sword", type: "sword", category: "WEAPON" },
+        { name: "Bronze Sword", type: "sword", category: "WEAPON" },
+      ],
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/items",
+      headers: { cookie },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const items = response.json().items as Array<{ name: string }>;
+    expect(items.map((item) => item.name)).toEqual(["Bronze Sword", "Steel Sword"]);
+  });
 });

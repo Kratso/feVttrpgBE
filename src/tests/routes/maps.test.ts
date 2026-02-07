@@ -61,6 +61,40 @@ describe("map routes", () => {
     expect(mapResponse.json().map.name).toBe("Arena");
   });
 
+  it("rejects invalid map payloads", async () => {
+    const { cookie, user } = await registerUser(app, {
+      email: "maps-invalid@test.com",
+      password: "password123",
+      displayName: "Maps Invalid",
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "Map Invalid Campaign",
+        createdById: user.id,
+        members: {
+          create: {
+            userId: user.id,
+            role: "DM",
+          },
+        },
+      },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/campaigns/${campaign.id}/maps`,
+      headers: { cookie },
+      payload: {
+        name: "A",
+        imageUrl: "not-a-url",
+        gridSize: 5,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
   it("lists maps for campaign members", async () => {
     const { cookie, user } = await registerUser(app, {
       email: "map-list@test.com",
@@ -85,6 +119,47 @@ describe("map routes", () => {
       data: {
         name: "List Map",
         imageUrl: "https://example.com/list.png",
+        gridSize: 50,
+        gridOffsetX: 0,
+        gridOffsetY: 0,
+        campaignId: campaign.id,
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/api/campaigns/${campaign.id}/maps`,
+      headers: { cookie },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().maps).toHaveLength(1);
+  });
+
+  it("allows PLAYER members to list maps", async () => {
+    const { cookie, user } = await registerUser(app, {
+      email: "map-list-player@test.com",
+      password: "password123",
+      displayName: "Map List Player",
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "Map List Player Campaign",
+        createdById: user.id,
+        members: {
+          create: {
+            userId: user.id,
+            role: "PLAYER",
+          },
+        },
+      },
+    });
+
+    await prisma.map.create({
+      data: {
+        name: "Player Map",
+        imageUrl: "https://example.com/player-map.png",
         gridSize: 50,
         gridOffsetX: 0,
         gridOffsetY: 0,

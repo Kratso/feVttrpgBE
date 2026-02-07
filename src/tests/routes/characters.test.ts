@@ -69,6 +69,178 @@ describe("character routes", () => {
     expect(listResponse.json().characters).toHaveLength(1);
   });
 
+  it("returns character detail for campaign members", async () => {
+    const { cookie, user } = await registerUser(app, {
+      email: "character-detail@test.com",
+      password: "password123",
+      displayName: "Character Detail Tester",
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "Character Detail Campaign",
+        createdById: user.id,
+        members: {
+          create: {
+            userId: user.id,
+            role: "DM",
+          },
+        },
+      },
+    });
+
+    const character = await prisma.character.create({
+      data: {
+        name: "Mia",
+        stats: { hp: 19 },
+        kind: "PLAYER",
+        campaignId: campaign.id,
+        ownerId: user.id,
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/api/characters/${character.id}`,
+      headers: { cookie },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().character.id).toBe(character.id);
+  });
+
+  it("returns 404 for missing character detail", async () => {
+    const { cookie } = await registerUser(app, {
+      email: "character-404@test.com",
+      password: "password123",
+      displayName: "Character 404",
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/characters/missing-character",
+      headers: { cookie },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("prevents non-members from reading character detail", async () => {
+    const { cookie } = await registerUser(app, {
+      email: "character-forbidden@test.com",
+      password: "password123",
+      displayName: "Character Forbidden",
+    });
+
+    const owner = await prisma.user.create({
+      data: {
+        email: "character-owner@test.com",
+        displayName: "Character Owner",
+        passwordHash: "hash",
+      },
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "Character Forbidden Campaign",
+        createdById: owner.id,
+        members: {
+          create: {
+            userId: owner.id,
+            role: "DM",
+          },
+        },
+      },
+    });
+
+    const character = await prisma.character.create({
+      data: {
+        name: "Zihark",
+        stats: { hp: 22 },
+        kind: "PLAYER",
+        campaignId: campaign.id,
+        ownerId: owner.id,
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: `/api/characters/${character.id}`,
+      headers: { cookie },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("prevents non-DM from creating characters", async () => {
+    const { cookie, user } = await registerUser(app, {
+      email: "character-create-player@test.com",
+      password: "password123",
+      displayName: "Character Create Player",
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "Character Create Campaign",
+        createdById: user.id,
+        members: {
+          create: {
+            userId: user.id,
+            role: "PLAYER",
+          },
+        },
+      },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/campaigns/${campaign.id}/characters`,
+      headers: { cookie },
+      payload: {
+        name: "Nephenee",
+        stats: { hp: 21 },
+        kind: "PLAYER",
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it("creates NPC without an owner", async () => {
+    const { cookie, user } = await registerUser(app, {
+      email: "character-npc@test.com",
+      password: "password123",
+      displayName: "Character NPC",
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "NPC Campaign",
+        createdById: user.id,
+        members: {
+          create: {
+            userId: user.id,
+            role: "DM",
+          },
+        },
+      },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/campaigns/${campaign.id}/characters`,
+      headers: { cookie },
+      payload: {
+        name: "Bandit",
+        stats: { hp: 15 },
+        kind: "NPC",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().character.ownerId).toBeNull();
+  });
+
   it("updates a character", async () => {
     const { cookie, user } = await registerUser(app, {
       email: "character-update@test.com",
@@ -112,5 +284,68 @@ describe("character routes", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().character.name).toBe("Soren Updated");
     expect(response.json().character.stats.hp).toBe(20);
+  });
+
+  it("returns 404 when updating a missing character", async () => {
+    const { cookie } = await registerUser(app, {
+      email: "character-update-404@test.com",
+      password: "password123",
+      displayName: "Character Update 404",
+    });
+
+    const response = await app.inject({
+      method: "PUT",
+      url: "/api/characters/missing-character",
+      headers: { cookie },
+      payload: {
+        name: "Missing",
+        stats: { hp: 1 },
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("prevents non-DM from updating a character", async () => {
+    const { cookie, user } = await registerUser(app, {
+      email: "character-update-player@test.com",
+      password: "password123",
+      displayName: "Character Update Player",
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "Character Update Player Campaign",
+        createdById: user.id,
+        members: {
+          create: {
+            userId: user.id,
+            role: "PLAYER",
+          },
+        },
+      },
+    });
+
+    const character = await prisma.character.create({
+      data: {
+        name: "Rolf",
+        stats: { hp: 16 },
+        kind: "PLAYER",
+        campaignId: campaign.id,
+        ownerId: user.id,
+      },
+    });
+
+    const response = await app.inject({
+      method: "PUT",
+      url: `/api/characters/${character.id}`,
+      headers: { cookie },
+      payload: {
+        name: "Rolf Updated",
+        stats: { hp: 18 },
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
   });
 });

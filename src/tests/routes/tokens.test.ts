@@ -80,6 +80,72 @@ describe("token routes", () => {
     expect(listResponse.json().tokens).toHaveLength(1);
   });
 
+  it("rejects invalid token payloads", async () => {
+    const { cookie, user } = await registerUser(app, {
+      email: "token-invalid@test.com",
+      password: "password123",
+      displayName: "Token Invalid",
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "Token Invalid Campaign",
+        createdById: user.id,
+        members: {
+          create: {
+            userId: user.id,
+            role: "DM",
+          },
+        },
+      },
+    });
+
+    const map = await prisma.map.create({
+      data: {
+        name: "Token Invalid Map",
+        imageUrl: "https://example.com/token-invalid.png",
+        gridSize: 50,
+        gridOffsetX: 0,
+        gridOffsetY: 0,
+        campaignId: campaign.id,
+      },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/maps/${map.id}/tokens`,
+      headers: { cookie },
+      payload: {
+        label: "",
+        x: -1,
+        y: -2,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("returns 404 when creating tokens for missing map", async () => {
+    const { cookie } = await registerUser(app, {
+      email: "token-create-404@test.com",
+      password: "password123",
+      displayName: "Token Create 404",
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/maps/missing-map/tokens",
+      headers: { cookie },
+      payload: {
+        label: "A",
+        x: 0,
+        y: 0,
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+
   it("prevents non-members from listing tokens", async () => {
     const { cookie } = await registerUser(app, {
       email: "token-list-forbidden@test.com",
@@ -339,5 +405,61 @@ describe("token routes", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().token.x).toBe(3);
     expect(response.json().token.y).toBe(4);
+  });
+
+  it("updates token label and color", async () => {
+    const { cookie, user } = await registerUser(app, {
+      email: "token-update-label@test.com",
+      password: "password123",
+      displayName: "Token Update Label",
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "Token Update Label Campaign",
+        createdById: user.id,
+        members: {
+          create: {
+            userId: user.id,
+            role: "DM",
+          },
+        },
+      },
+    });
+
+    const map = await prisma.map.create({
+      data: {
+        name: "Token Update Label Map",
+        imageUrl: "https://example.com/token-label.png",
+        gridSize: 50,
+        gridOffsetX: 0,
+        gridOffsetY: 0,
+        campaignId: campaign.id,
+      },
+    });
+
+    const token = await prisma.token.create({
+      data: {
+        mapId: map.id,
+        label: "X",
+        x: 1,
+        y: 1,
+        color: "#000000",
+      },
+    });
+
+    const response = await app.inject({
+      method: "PUT",
+      url: `/api/tokens/${token.id}`,
+      headers: { cookie },
+      payload: {
+        label: "Y",
+        color: "#ffffff",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().token.label).toBe("Y");
+    expect(response.json().token.color).toBe("#ffffff");
   });
 });

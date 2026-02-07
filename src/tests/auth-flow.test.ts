@@ -67,6 +67,63 @@ describe("auth flows", () => {
     expect(response.headers["set-cookie"]).toBeTruthy();
   });
 
+  it("rejects duplicate registration", async () => {
+    await prisma.user.create({
+      data: {
+        email: "dupe@test.com",
+        displayName: "Dupe",
+        passwordHash: "hash",
+      },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/auth/register",
+      payload: {
+        email: "dupe@test.com",
+        password: "password123",
+        displayName: "Dupe",
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("rejects invalid login credentials", async () => {
+    const passwordHash = await bcrypt.hash("password123", 10);
+    await prisma.user.create({
+      data: {
+        email: "invalid-login@test.com",
+        displayName: "Invalid Login",
+        passwordHash,
+      },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: {
+        email: "invalid-login@test.com",
+        password: "wrong-password",
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("rejects login for unknown user", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: {
+        email: "missing@test.com",
+        password: "password123",
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
+
   it("returns the current user for /auth/me", async () => {
     const registerResponse = await app.inject({
       method: "POST",

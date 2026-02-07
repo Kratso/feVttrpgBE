@@ -58,4 +58,53 @@ describe("class routes", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().classes).toHaveLength(1);
   });
+
+  it("orders classes by name", async () => {
+    const { cookie } = await registerUser(app, {
+      email: "classes-order@test.com",
+      password: "password123",
+      displayName: "Classes Order",
+    });
+
+    await prisma.gameClass.createMany({
+      data: [
+        {
+          name: "Warrior",
+          description: "",
+          growths: {},
+          baseStats: {},
+          maxStats: {},
+          weaponRanks: {},
+          promotesTo: [],
+          skills: [],
+          types: [],
+          powerBonus: 0,
+          expBonus: 0,
+        },
+        {
+          name: "Archer",
+          description: "",
+          growths: {},
+          baseStats: {},
+          maxStats: {},
+          weaponRanks: {},
+          promotesTo: [],
+          skills: [],
+          types: [],
+          powerBonus: 0,
+          expBonus: 0,
+        },
+      ],
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/classes",
+      headers: { cookie },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const classes = response.json().classes as Array<{ name: string }>;
+    expect(classes.map((entry) => entry.name)).toEqual(["Archer", "Warrior"]);
+  });
 });

@@ -9,6 +9,7 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import { ZodError } from "zod";
 import path from "path";
+import { promises as fs } from "fs";
 import { registerRedis } from "./plugins/redis";
 import { registerSession } from "./plugins/session";
 import { registerRoutes } from "./routes";
@@ -34,6 +35,15 @@ export async function buildApp(options: AppOptions = {}) {
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
+  const normalizedOrigins = new Set<string>(corsOrigins);
+  corsOrigins.forEach((origin) => {
+    if (origin.includes("localhost")) {
+      normalizedOrigins.add(origin.replace("localhost", "127.0.0.1"));
+    }
+    if (origin.includes("127.0.0.1")) {
+      normalizedOrigins.add(origin.replace("127.0.0.1", "localhost"));
+    }
+  });
 
   await app.register(cors, {
     origin: (origin, callback) => {
@@ -42,7 +52,7 @@ export async function buildApp(options: AppOptions = {}) {
         return;
       }
 
-      if (corsOrigins.length === 0 || corsOrigins.includes(origin)) {
+      if (corsOrigins.length === 0 || normalizedOrigins.has(origin)) {
         callback(null, true);
         return;
       }
@@ -105,6 +115,7 @@ export async function buildApp(options: AppOptions = {}) {
   });
 
   const uploadRoot = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
+  await fs.mkdir(uploadRoot, { recursive: true });
   await app.register(fastifyStatic, {
     root: uploadRoot,
     prefix: "/uploads/",

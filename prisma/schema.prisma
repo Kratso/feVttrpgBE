@@ -28,6 +28,7 @@ model Campaign {
   characters  Character[]
   maps        Map[]
   tileSets    TileSet[]
+  tilePresets TilePreset[]
 }
 
 model CampaignMember {
@@ -143,10 +144,8 @@ model Map {
   tileCountX  Int      @default(10)
   tileCountY  Int      @default(10)
   tileGrid    Json?
-  tileSetId   String?
   campaign    Campaign @relation(fields: [campaignId], references: [id])
   tokens      Token[]
-  tileSet     TileSet? @relation(fields: [tileSetId], references: [id])
 }
 
 model TileSet {
@@ -161,7 +160,6 @@ model TileSet {
   campaignId String
   campaign   Campaign @relation(fields: [campaignId], references: [id])
   tiles      Tile[]
-  maps       Map[]
 }
 
 model Tile {
@@ -173,6 +171,17 @@ model Tile {
   tileSet   TileSet  @relation(fields: [tileSetId], references: [id])
 
   @@unique([tileSetId, index])
+}
+
+model TilePreset {
+  id         String   @id @default(cuid())
+  name       String
+  tileCountX Int
+  tileCountY Int
+  tileGrid   Json
+  createdAt  DateTime @default(now())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
 }
 
 model Token {

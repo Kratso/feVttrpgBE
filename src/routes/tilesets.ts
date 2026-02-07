@@ -2,8 +2,6 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { MultipartFile } from "@fastify/multipart";
 import crypto from "crypto";
-import path from "path";
-import { promises as fs } from "fs";
 import sharp from "sharp";
 import { prisma } from "../plugins/db";
 import { requireCampaignMember, requireDM } from "../utils/auth";
@@ -31,7 +29,8 @@ const tileSetUploadSchema = z.object({
   rows: z.coerce.number().int().min(1).max(512),
 });
 
-const getPublicBaseUrl = () => process.env.PUBLIC_BASE_URL ?? "http://localhost:4000";
+const MAX_TILES = 4096;
+const bufferToDataUrl = (buffer: Buffer) => `data:image/png;base64,${buffer.toString("base64")}`;
 
 export async function tileSetRoutes(fastify: FastifyInstance) {
   fastify.get("/campaigns/:id/tilesets", async (request, reply) => {
@@ -83,107 +82,116 @@ export async function tileSetRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post("/campaigns/:id/tilesets/upload", async (request, reply) => {
-    const params = z.object({ id: z.string() }).parse(request.params);
-    const dm = await requireDM(request, reply, params.id);
-    if (!dm) {
-      return;
-    }
-
-    if (!request.isMultipart()) {
-      reply.code(400).send({ error: "Multipart form required" });
-      return;
-    }
-
-    const fields: Record<string, string> = {};
-    let filePart: MultipartFile | null = null;
-
-    for await (const part of request.parts()) {
-      if (part.type === "file") {
-        filePart = part;
-        continue;
+    try {
+      const params = z.object({ id: z.string() }).parse(request.params);
+      const dm = await requireDM(request, reply, params.id);
+      if (!dm) {
+        return;
       }
-      fields[part.fieldname] = part.value;
-    }
 
-    if (!filePart) {
-      reply.code(400).send({ error: "Tileset image is required" });
-      return;
-    }
+      if (!request.isMultipart()) {
+        reply.code(400).send({ error: "Multipart form required" });
+        return;
+      }
 
-    const parsed = tileSetUploadSchema.safeParse(fields);
-    if (!parsed.success) {
-      reply.code(400).send({ error: "Invalid upload fields", details: parsed.error.errors });
-      return;
-    }
+      request.log.info("Tileset upload: reading multipart");
+      const fields: Record<string, string> = {};
+      let fileBuffer: Buffer | null = null;
+      let fileName: string | undefined;
 
-    const buffer = await filePart.toBuffer();
-    const metadata = await sharp(buffer).metadata();
-    const expectedWidth = parsed.data.columns * parsed.data.tileSizeX;
-    const expectedHeight = parsed.data.rows * parsed.data.tileSizeY;
+      for await (const part of request.parts()) {
+        if (part.type === "file") {
+          fileName = part.filename;
+          fileBuffer = await part.toBuffer();
+          continue;
+        }
+        fields[part.fieldname] = part.value;
+      }
 
-    if (metadata.width !== expectedWidth || metadata.height !== expectedHeight) {
-      reply.code(400).send({
-        error: "Tileset image dimensions do not match columns/rows and tile size",
-        details: {
-          expectedWidth,
-          expectedHeight,
-          width: metadata.width,
-          height: metadata.height,
-        },
-      });
-      return;
-    }
+      if (!fileBuffer) {
+        reply.code(400).send({ error: "Tileset image is required" });
+        return;
+      }
 
-    const tileSetId = crypto.randomUUID();
-    const uploadRoot = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
-    const tileSetDir = path.join(uploadRoot, "tilesets", tileSetId);
-    await fs.mkdir(tileSetDir, { recursive: true });
+      request.log.info({ fields, fileName }, "Tileset upload: parsed fields");
 
-    const tilesetFile = path.join(tileSetDir, "tileset.png");
-    await sharp(buffer).png().toFile(tilesetFile);
+      const parsed = tileSetUploadSchema.safeParse(fields);
+      if (!parsed.success) {
+        reply.code(400).send({ error: "Invalid upload fields", details: parsed.error.errors });
+        return;
+      }
 
-    const publicBaseUrl = getPublicBaseUrl();
-    const tilesetUrl = `${publicBaseUrl}/uploads/tilesets/${tileSetId}/tileset.png`;
+      const totalTiles = parsed.data.columns * parsed.data.rows;
+      if (totalTiles > MAX_TILES) {
+        reply.code(400).send({ error: `Tileset too large (max ${MAX_TILES} tiles)` });
+        return;
+      }
 
-    const tiles: Array<{ index: number; imageUrl: string }> = [];
-    for (let row = 0; row < parsed.data.rows; row += 1) {
-      for (let col = 0; col < parsed.data.columns; col += 1) {
-        const index = row * parsed.data.columns + col;
-        const tileFile = path.join(tileSetDir, `tile-${index}.png`);
-        await sharp(buffer)
-          .extract({
-            left: col * parsed.data.tileSizeX,
-            top: row * parsed.data.tileSizeY,
-            width: parsed.data.tileSizeX,
-            height: parsed.data.tileSizeY,
-          })
-          .png()
-          .toFile(tileFile);
-        tiles.push({
-          index,
-          imageUrl: `${publicBaseUrl}/uploads/tilesets/${tileSetId}/tile-${index}.png`,
+      const metadata = await sharp(fileBuffer).metadata();
+      const expectedWidth = parsed.data.columns * parsed.data.tileSizeX;
+      const expectedHeight = parsed.data.rows * parsed.data.tileSizeY;
+
+      if (metadata.width !== expectedWidth || metadata.height !== expectedHeight) {
+        reply.code(400).send({
+          error: "Tileset image dimensions do not match columns/rows and tile size",
+          details: {
+            expectedWidth,
+            expectedHeight,
+            width: metadata.width,
+            height: metadata.height,
+          },
         });
+        return;
       }
-    }
 
-    const tileSet = await prisma.tileSet.create({
-      data: {
-        id: tileSetId,
-        name: parsed.data.name,
-        imageUrl: tilesetUrl,
-        tileSizeX: parsed.data.tileSizeX,
-        tileSizeY: parsed.data.tileSizeY,
-        columns: parsed.data.columns,
-        rows: parsed.data.rows,
-        campaignId: params.id,
-        tiles: {
-          create: tiles,
+      const tileSetId = crypto.randomUUID();
+      const tilesetPng = await sharp(fileBuffer).png().toBuffer();
+      const tilesetUrl = bufferToDataUrl(tilesetPng);
+
+      request.log.info({ totalTiles }, "Tileset upload: slicing tiles");
+      const tiles: Array<{ index: number; imageUrl: string }> = [];
+      for (let row = 0; row < parsed.data.rows; row += 1) {
+        for (let col = 0; col < parsed.data.columns; col += 1) {
+          const index = row * parsed.data.columns + col;
+          const tileBuffer = await sharp(fileBuffer)
+            .extract({
+              left: col * parsed.data.tileSizeX,
+              top: row * parsed.data.tileSizeY,
+              width: parsed.data.tileSizeX,
+              height: parsed.data.tileSizeY,
+            })
+            .png()
+            .toBuffer();
+          tiles.push({
+            index,
+            imageUrl: bufferToDataUrl(tileBuffer),
+          });
+        }
+      }
+
+      request.log.info("Tileset upload: saving db records");
+      const tileSet = await prisma.tileSet.create({
+        data: {
+          id: tileSetId,
+          name: parsed.data.name,
+          imageUrl: tilesetUrl,
+          tileSizeX: parsed.data.tileSizeX,
+          tileSizeY: parsed.data.tileSizeY,
+          columns: parsed.data.columns,
+          rows: parsed.data.rows,
+          campaignId: params.id,
+          tiles: {
+            create: tiles,
+          },
         },
-      },
-      include: { tiles: true },
-    });
+        include: { tiles: true },
+      });
 
-    reply.send({ tileSet });
+      reply.send({ tileSet });
+    } catch (error) {
+      request.log.error({ err: error }, "Tileset upload failed");
+      reply.code(500).send({ error: "Tileset upload failed" });
+    }
   });
 
   fastify.get("/tilesets/:id", async (request, reply) => {

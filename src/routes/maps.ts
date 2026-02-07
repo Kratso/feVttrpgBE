@@ -9,7 +9,6 @@ const mapSchema = z
   .object({
     name: z.string().min(2),
     imageUrl: z.string().url().optional(),
-    tileSetId: z.string().optional(),
     tileCountX: z.number().int().min(5).max(200).optional(),
     tileCountY: z.number().int().min(5).max(200).optional(),
     tileGrid: tileGridSchema.optional(),
@@ -18,14 +17,13 @@ const mapSchema = z
     gridOffsetX: z.number().int().optional(),
     gridOffsetY: z.number().int().optional(),
   })
-  .refine((value) => value.imageUrl || value.tileSetId, {
-    message: "Map requires imageUrl or tileSetId",
+  .refine((value) => value.imageUrl || value.tileGrid, {
+    message: "Map requires imageUrl or tileGrid",
     path: ["imageUrl"],
   });
 
 const mapUpdateSchema = z.object({
   imageUrl: z.string().url().optional(),
-  tileSetId: z.string().optional(),
   tileCountX: z.number().int().min(5).max(200).optional(),
   tileCountY: z.number().int().min(5).max(200).optional(),
   tileGrid: tileGridSchema.optional(),
@@ -71,17 +69,8 @@ export async function mapRoutes(fastify: FastifyInstance) {
     }
 
     const body = mapSchema.parse(request.body);
-    const tileSet = body.tileSetId
-      ? await prisma.tileSet.findUnique({ where: { id: body.tileSetId } })
-      : null;
-
-    if (body.tileSetId && !tileSet) {
-      reply.code(404).send({ error: "Tileset not found" });
-      return;
-    }
-
-    const gridSizeX = body.gridSizeX ?? tileSet?.tileSizeX ?? 50;
-    const gridSizeY = body.gridSizeY ?? tileSet?.tileSizeY ?? 50;
+    const gridSizeX = body.gridSizeX ?? 50;
+    const gridSizeY = body.gridSizeY ?? 50;
     const tileCountX = body.tileCountX ?? 10;
     const tileCountY = body.tileCountY ?? 10;
     const tileGrid = body.tileGrid ?? buildEmptyGrid(tileCountY, tileCountX);
@@ -104,7 +93,6 @@ export async function mapRoutes(fastify: FastifyInstance) {
         tileCountX,
         tileCountY,
         tileGrid,
-        tileSetId: body.tileSetId ?? null,
         campaignId: params.id,
       },
     });
@@ -150,18 +138,8 @@ export async function mapRoutes(fastify: FastifyInstance) {
     }
 
     const body = mapUpdateSchema.parse(request.body);
-    const nextTileSetId = body.tileSetId ?? map.tileSetId ?? null;
-    const tileSet = nextTileSetId
-      ? await prisma.tileSet.findUnique({ where: { id: nextTileSetId } })
-      : null;
-
-    if (nextTileSetId && !tileSet) {
-      reply.code(404).send({ error: "Tileset not found" });
-      return;
-    }
-
-    const gridSizeX = body.gridSizeX ?? tileSet?.tileSizeX ?? map.gridSizeX;
-    const gridSizeY = body.gridSizeY ?? tileSet?.tileSizeY ?? map.gridSizeY;
+    const gridSizeX = body.gridSizeX ?? map.gridSizeX;
+    const gridSizeY = body.gridSizeY ?? map.gridSizeY;
     const tileCountX = body.tileCountX ?? map.tileCountX;
     const tileCountY = body.tileCountY ?? map.tileCountY;
     const tileGrid = body.tileGrid ?? (map.tileGrid as Array<Array<string | null>> | null);
@@ -186,7 +164,6 @@ export async function mapRoutes(fastify: FastifyInstance) {
         tileCountX,
         tileCountY,
         tileGrid: tileGrid ?? map.tileGrid,
-        tileSetId: nextTileSetId,
       },
     });
 

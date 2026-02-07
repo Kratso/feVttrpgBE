@@ -13,6 +13,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "seed": "tsx src/seed.ts",
+    "pretest": "node scripts/test-setup.js",
     "test": "vitest"
   },
   "keywords": [],

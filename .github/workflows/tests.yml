@@ -32,5 +32,9 @@ jobs:
           node-version: "20"
       - name: Install dependencies
         run: npm install
+      - name: Run migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL_TEST }}
       - name: Run tests
         run: npm test

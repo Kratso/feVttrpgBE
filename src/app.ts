@@ -3,9 +3,12 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import fastifyCookie from "@fastify/cookie";
 import fastifySession from "@fastify/session";
+import fastifyMultipart from "@fastify/multipart";
+import fastifyStatic from "@fastify/static";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import { ZodError } from "zod";
+import path from "path";
 import { registerRedis } from "./plugins/redis";
 import { registerSession } from "./plugins/session";
 import { registerRoutes } from "./routes";
@@ -27,8 +30,26 @@ export async function buildApp(options: AppOptions = {}) {
     reply.send(error);
   });
 
+  const corsOrigins = (process.env.CORS_ORIGIN ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   await app.register(cors, {
-    origin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (corsOrigins.length === 0 || corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Origin not allowed"), false);
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   });
 
@@ -75,6 +96,18 @@ export async function buildApp(options: AppOptions = {}) {
       docExpansion: "list",
       deepLinking: false,
     },
+  });
+
+  await app.register(fastifyMultipart, {
+    limits: {
+      fileSize: 20 * 1024 * 1024,
+    },
+  });
+
+  const uploadRoot = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
+  await app.register(fastifyStatic, {
+    root: uploadRoot,
+    prefix: "/uploads/",
   });
 
   await registerRoutes(app);

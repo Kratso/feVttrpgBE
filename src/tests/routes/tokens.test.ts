@@ -50,7 +50,8 @@ describe("token routes", () => {
       data: {
         name: "Arena",
         imageUrl: "https://example.com/map.png",
-        gridSize: 50,
+        gridSizeX: 50,
+        gridSizeY: 50,
         gridOffsetX: 0,
         gridOffsetY: 0,
         campaignId: campaign.id,
@@ -104,7 +105,8 @@ describe("token routes", () => {
       data: {
         name: "Token Invalid Map",
         imageUrl: "https://example.com/token-invalid.png",
-        gridSize: 50,
+        gridSizeX: 50,
+        gridSizeY: 50,
         gridOffsetX: 0,
         gridOffsetY: 0,
         campaignId: campaign.id,
@@ -178,7 +180,8 @@ describe("token routes", () => {
       data: {
         name: "Token Map",
         imageUrl: "https://example.com/token-map.png",
-        gridSize: 50,
+        gridSizeX: 50,
+        gridSizeY: 50,
         gridOffsetX: 0,
         gridOffsetY: 0,
         campaignId: campaign.id,
@@ -234,7 +237,8 @@ describe("token routes", () => {
       data: {
         name: "Token Create Map",
         imageUrl: "https://example.com/token-create.png",
-        gridSize: 50,
+        gridSizeX: 50,
+        gridSizeY: 50,
         gridOffsetX: 0,
         gridOffsetY: 0,
         campaignId: campaign.id,
@@ -279,7 +283,8 @@ describe("token routes", () => {
       data: {
         name: "Token Update Map",
         imageUrl: "https://example.com/token-update.png",
-        gridSize: 50,
+        gridSizeX: 50,
+        gridSizeY: 50,
         gridOffsetX: 0,
         gridOffsetY: 0,
         campaignId: campaign.id,
@@ -323,7 +328,8 @@ describe("token routes", () => {
       data: {
         name: "Token Update Player Map",
         imageUrl: "https://example.com/token-update-player.png",
-        gridSize: 50,
+        gridSizeX: 50,
+        gridSizeY: 50,
         gridOffsetX: 0,
         gridOffsetY: 0,
         campaignId: campaign.id,
@@ -376,7 +382,8 @@ describe("token routes", () => {
       data: {
         name: "Token Map",
         imageUrl: "https://example.com/token-map.png",
-        gridSize: 50,
+        gridSizeX: 50,
+        gridSizeY: 50,
         gridOffsetX: 0,
         gridOffsetY: 0,
         campaignId: campaign.id,
@@ -431,7 +438,8 @@ describe("token routes", () => {
       data: {
         name: "Token Update Label Map",
         imageUrl: "https://example.com/token-label.png",
-        gridSize: 50,
+        gridSizeX: 50,
+        gridSizeY: 50,
         gridOffsetX: 0,
         gridOffsetY: 0,
         campaignId: campaign.id,

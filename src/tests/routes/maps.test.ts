@@ -53,7 +53,8 @@ describe("map routes", () => {
       payload: {
         name: "Arena",
         imageUrl: "https://example.com/map.png",
-        gridSize: 50,
+        gridSizeX: 50,
+        gridSizeY: 50,
       },
     });
 
@@ -88,7 +89,8 @@ describe("map routes", () => {
       payload: {
         name: "A",
         imageUrl: "not-a-url",
-        gridSize: 5,
+        gridSizeX: 5,
+        gridSizeY: 5,
       },
     });
 
@@ -119,7 +121,8 @@ describe("map routes", () => {
       data: {
         name: "List Map",
         imageUrl: "https://example.com/list.png",
-        gridSize: 50,
+        gridSizeX: 50,
+        gridSizeY: 50,
         gridOffsetX: 0,
         gridOffsetY: 0,
         campaignId: campaign.id,
@@ -160,7 +163,8 @@ describe("map routes", () => {
       data: {
         name: "Player Map",
         imageUrl: "https://example.com/player-map.png",
-        gridSize: 50,
+        gridSizeX: 50,
+        gridSizeY: 50,
         gridOffsetX: 0,
         gridOffsetY: 0,
         campaignId: campaign.id,
@@ -262,7 +266,8 @@ describe("map routes", () => {
       data: {
         name: "Hidden Map",
         imageUrl: "https://example.com/hidden.png",
-        gridSize: 40,
+        gridSizeX: 40,
+        gridSizeY: 40,
         gridOffsetX: 0,
         gridOffsetY: 0,
         campaignId: campaign.id,
@@ -302,7 +307,8 @@ describe("map routes", () => {
       data: {
         name: "Bridge",
         imageUrl: "https://example.com/bridge.png",
-        gridSize: 40,
+        gridSizeX: 40,
+        gridSizeY: 40,
         gridOffsetX: 0,
         gridOffsetY: 0,
         campaignId: campaign.id,
@@ -346,7 +352,8 @@ describe("map routes", () => {
       payload: {
         name: "Unauthorized Map",
         imageUrl: "https://example.com/nope.png",
-        gridSize: 50,
+        gridSizeX: 50,
+        gridSizeY: 50,
       },
     });
 

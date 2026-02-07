@@ -7,6 +7,185 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id           String           @id @default(cuid())
+  email        String           @unique
+  passwordHash String
+  displayName  String
+  createdAt    DateTime         @default(now())
+  created      Campaign[]       @relation("CreatedCampaigns")
+  campaigns    CampaignMember[]
+  characters   Character[]
+}
+
+model Campaign {
+  id          String           @id @default(cuid())
+  name        String
+  createdAt   DateTime         @default(now())
+  createdById String
+  createdBy   User             @relation("CreatedCampaigns", fields: [createdById], references: [id])
+  members     CampaignMember[]
+  characters  Character[]
+  maps        Map[]
+  tileSets    TileSet[]
+}
+
+model CampaignMember {
+  id         String       @id @default(cuid())
+  userId     String
+  campaignId String
+  role       CampaignRole @default(PLAYER)
+  campaign   Campaign     @relation(fields: [campaignId], references: [id])
+  user       User         @relation(fields: [userId], references: [id])
+
+  @@unique([userId, campaignId])
+}
+
+model Character {
+  id           String           @id @default(cuid())
+  name         String
+  stats        Json
+  createdAt    DateTime         @default(now())
+  ownerId      String?
+  campaignId   String
+  kind         CharacterKind    @default(PLAYER)
+  classId      String?
+  className    String?
+  exp          Int              @default(0)
+  level        Int              @default(1)
+  weaponSkills Json?
+  campaign     Campaign         @relation(fields: [campaignId], references: [id])
+  class        GameClass?       @relation(fields: [classId], references: [id])
+  owner        User?            @relation(fields: [ownerId], references: [id])
+  inventory    CharacterItem[]
+  skills       CharacterSkill[]
+}
+
+model GameClass {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String?
+  growths     Json
+  baseStats   Json
+  maxStats    Json
+  weaponRanks Json
+  promotesTo  Json
+  skills      Json
+  types       Json
+  powerBonus  Int
+  expBonus    Int
+  characters  Character[]
+}
+
+model Skill {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  activation  String?
+  characters  CharacterSkill[]
+}
+
+model Item {
+  id            String          @id @default(cuid())
+  name          String          @unique
+  type          String
+  category      ItemCategory    @default(ITEM)
+  damageType    DamageType?
+  weaponRank    String?
+  might         Int?
+  hit           Int?
+  crit          Int?
+  weight        Int?
+  minRange      Int?
+  maxRange      Int?
+  rangeFormula  String?
+  weaponExp     Int?
+  effectiveness Json?
+  bonus         Json?
+  uses          Int?
+  price         Int?
+  description   String?
+  characters    CharacterItem[]
+}
+
+model CharacterSkill {
+  id          String    @id @default(cuid())
+  characterId String
+  skillId     String
+  character   Character @relation(fields: [characterId], references: [id])
+  skill       Skill     @relation(fields: [skillId], references: [id])
+
+  @@unique([characterId, skillId])
+}
+
+model CharacterItem {
+  id          String    @id @default(cuid())
+  characterId String
+  itemId      String
+  equipped    Boolean   @default(false)
+  character   Character @relation(fields: [characterId], references: [id])
+  item        Item      @relation(fields: [itemId], references: [id])
+
+  @@unique([characterId, itemId])
+  @@index([characterId])
+}
+
+model Map {
+  id          String   @id @default(cuid())
+  name        String
+  imageUrl    String?
+  gridSizeY   Int      @default(50)
+  gridOffsetX Int      @default(0)
+  gridOffsetY Int      @default(0)
+  createdAt   DateTime @default(now())
+  campaignId  String
+  gridSizeX   Int      @default(50)
+  tileCountX  Int      @default(10)
+  tileCountY  Int      @default(10)
+  tileGrid    Json?
+  tileSetId   String?
+  campaign    Campaign @relation(fields: [campaignId], references: [id])
+  tokens      Token[]
+  tileSet     TileSet? @relation(fields: [tileSetId], references: [id])
+}
+
+model TileSet {
+  id         String   @id @default(cuid())
+  name       String
+  imageUrl   String
+  tileSizeX  Int
+  tileSizeY  Int
+  columns    Int
+  rows       Int
+  createdAt  DateTime @default(now())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+  tiles      Tile[]
+  maps       Map[]
+}
+
+model Tile {
+  id        String   @id @default(cuid())
+  tileSetId String
+  index     Int
+  imageUrl  String
+  createdAt DateTime @default(now())
+  tileSet   TileSet  @relation(fields: [tileSetId], references: [id])
+
+  @@unique([tileSetId, index])
+}
+
+model Token {
+  id        String   @id @default(cuid())
+  label     String
+  x         Int
+  y         Int
+  color     String   @default("#f43f5e")
+  createdAt DateTime @default(now())
+  mapId     String
+  map       Map      @relation(fields: [mapId], references: [id])
+}
+
 enum CampaignRole {
   DM
   PLAYER
@@ -26,163 +205,4 @@ enum DamageType {
 enum ItemCategory {
   ITEM
   WEAPON
-}
-
-model User {
-  id           String             @id @default(cuid())
-  email        String             @unique
-  passwordHash String
-  displayName  String
-  createdAt    DateTime           @default(now())
-
-  campaigns    CampaignMember[]
-  characters   Character[]
-  created      Campaign[]         @relation("CreatedCampaigns")
-}
-
-model Campaign {
-  id          String             @id @default(cuid())
-  name        String
-  createdAt   DateTime           @default(now())
-  createdById String
-  createdBy   User               @relation("CreatedCampaigns", fields: [createdById], references: [id])
-
-  members     CampaignMember[]
-  characters  Character[]
-  maps        Map[]
-}
-
-model CampaignMember {
-  id          String        @id @default(cuid())
-  userId      String
-  campaignId  String
-  role        CampaignRole  @default(PLAYER)
-
-  user        User          @relation(fields: [userId], references: [id])
-  campaign    Campaign      @relation(fields: [campaignId], references: [id])
-
-  @@unique([userId, campaignId])
-}
-
-model Character {
-  id          String    @id @default(cuid())
-  name        String
-  stats       Json
-  kind        CharacterKind @default(PLAYER)
-  exp         Int       @default(0)
-  level       Int       @default(1)
-  className   String?
-  weaponSkills Json?
-  createdAt   DateTime  @default(now())
-
-  ownerId     String?
-  campaignId  String
-  classId     String?
-
-  owner       User?     @relation(fields: [ownerId], references: [id])
-  campaign    Campaign  @relation(fields: [campaignId], references: [id])
-  class       GameClass? @relation(fields: [classId], references: [id])
-  skills      CharacterSkill[]
-  inventory   CharacterItem[]
-}
-
-model GameClass {
-  id           String   @id @default(cuid())
-  name         String   @unique
-  description  String?
-  growths      Json
-  baseStats    Json
-  maxStats     Json
-  weaponRanks  Json
-  promotesTo   Json
-  skills       Json
-  types        Json
-  powerBonus   Int
-  expBonus     Int
-
-  characters   Character[]
-}
-
-model Skill {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  activation  String?
-
-  characters  CharacterSkill[]
-}
-
-model Item {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  type        String
-  category    ItemCategory @default(ITEM)
-  damageType  DamageType?
-  weaponRank  String?
-  might       Int?
-  hit         Int?
-  crit        Int?
-  weight      Int?
-  minRange    Int?
-  maxRange    Int?
-  rangeFormula String?
-  weaponExp   Int?
-  effectiveness Json?
-  bonus       Json?
-  uses        Int?
-  price       Int?
-  description String?
-
-  characters  CharacterItem[]
-}
-
-model CharacterSkill {
-  id           String   @id @default(cuid())
-  characterId  String
-  skillId      String
-
-  character    Character @relation(fields: [characterId], references: [id])
-  skill        Skill     @relation(fields: [skillId], references: [id])
-
-  @@unique([characterId, skillId])
-}
-
-model CharacterItem {
-  id           String   @id @default(cuid())
-  characterId  String
-  itemId       String
-  equipped     Boolean  @default(false)
-
-  character    Character @relation(fields: [characterId], references: [id])
-  item         Item      @relation(fields: [itemId], references: [id])
-
-  @@index([characterId])
-  @@unique([characterId, itemId])
-}
-
-model Map {
-  id          String    @id @default(cuid())
-  name        String
-  imageUrl    String
-  gridSize    Int       @default(50)
-  gridOffsetX Int       @default(0)
-  gridOffsetY Int       @default(0)
-  createdAt   DateTime  @default(now())
-
-  campaignId  String
-  campaign    Campaign  @relation(fields: [campaignId], references: [id])
-
-  tokens      Token[]
-}
-
-model Token {
-  id        String   @id @default(cuid())
-  label     String
-  x         Int
-  y         Int
-  color     String   @default("#f43f5e")
-  createdAt DateTime @default(now())
-
-  mapId     String
-  map       Map      @relation(fields: [mapId], references: [id])
 }

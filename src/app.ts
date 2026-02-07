@@ -15,6 +15,8 @@ export type AppOptions = {
 export async function buildApp(options: AppOptions = {}) {
   const app = Fastify({ logger: true });
 
+  const sessionSecret = (process.env.SESSION_SECRET ?? "dev-secret").padEnd(32, "0");
+
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ZodError) {
       reply.code(400).send({ error: "Invalid request", details: error.errors });
@@ -31,7 +33,7 @@ export async function buildApp(options: AppOptions = {}) {
   if (options.session === "memory") {
     await app.register(fastifyCookie);
     await app.register(fastifySession, {
-      secret: process.env.SESSION_SECRET ?? "dev-secret",
+      secret: sessionSecret,
       cookie: {
         secure: false,
         httpOnly: true,

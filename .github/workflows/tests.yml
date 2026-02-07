@@ -24,6 +24,7 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL_TEST: postgresql://fevttrpg:fevttrpg@localhost:5432/fevttrpg_test
+      SESSION_SECRET: tests-session-secret-32-chars-min
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

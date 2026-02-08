@@ -8,6 +8,7 @@ const tokenSchema = z.object({
   x: z.number().int().min(0),
   y: z.number().int().min(0),
   color: z.string().optional(),
+  characterId: z.string().min(1),
 });
 
 const updateSchema = z.object({
@@ -15,6 +16,7 @@ const updateSchema = z.object({
   y: z.number().int().min(0).optional(),
   label: z.string().optional(),
   color: z.string().optional(),
+  characterId: z.string().min(1).optional(),
 });
 
 export async function tokenRoutes(fastify: FastifyInstance) {
@@ -34,6 +36,9 @@ export async function tokenRoutes(fastify: FastifyInstance) {
     const tokens = await prisma.token.findMany({
       where: { mapId: params.id },
       orderBy: { createdAt: "asc" },
+      include: {
+        character: { include: { owner: { select: { id: true, displayName: true } } } },
+      },
     });
 
     reply.send({ tokens });
@@ -53,6 +58,24 @@ export async function tokenRoutes(fastify: FastifyInstance) {
     }
 
     const body = tokenSchema.parse(request.body);
+    const character = await prisma.character.findUnique({
+      where: { id: body.characterId },
+    });
+
+    if (!character || character.campaignId !== map.campaignId) {
+      reply.code(400).send({ error: "Character not found in campaign" });
+      return;
+    }
+
+    const existingToken = await prisma.token.findUnique({
+      where: { characterId: body.characterId },
+    });
+
+    if (existingToken) {
+      reply.code(400).send({ error: "Character already has a token" });
+      return;
+    }
+
     const token = await prisma.token.create({
       data: {
         mapId: params.id,
@@ -60,6 +83,10 @@ export async function tokenRoutes(fastify: FastifyInstance) {
         x: body.x,
         y: body.y,
         color: body.color ?? "#f43f5e",
+        characterId: body.characterId,
+      },
+      include: {
+        character: { include: { owner: { select: { id: true, displayName: true } } } },
       },
     });
 
@@ -84,6 +111,25 @@ export async function tokenRoutes(fastify: FastifyInstance) {
     }
 
     const body = updateSchema.parse(request.body);
+    if (body.characterId && body.characterId !== existing.characterId) {
+      const character = await prisma.character.findUnique({
+        where: { id: body.characterId },
+      });
+
+      if (!character || character.campaignId !== existing.map.campaignId) {
+        reply.code(400).send({ error: "Character not found in campaign" });
+        return;
+      }
+
+      const duplicate = await prisma.token.findUnique({
+        where: { characterId: body.characterId },
+      });
+
+      if (duplicate) {
+        reply.code(400).send({ error: "Character already has a token" });
+        return;
+      }
+    }
     const token = await prisma.token.update({
       where: { id: params.id },
       data: {
@@ -91,6 +137,10 @@ export async function tokenRoutes(fastify: FastifyInstance) {
         y: body.y ?? existing.y,
         label: body.label ?? existing.label,
         color: body.color ?? existing.color,
+        characterId: body.characterId ?? existing.characterId,
+      },
+      include: {
+        character: { include: { owner: { select: { id: true, displayName: true } } } },
       },
     });
 

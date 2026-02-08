@@ -21,6 +21,9 @@ export function initSocket(fastify: FastifyInstance) {
         const token = await prisma.token.update({
           where: { id: tokenId },
           data: { x, y },
+          include: {
+            character: { include: { owner: { select: { id: true, displayName: true } } } },
+          },
         });
         io.to(`map:${mapId}`).emit("token:moved", { token });
       }

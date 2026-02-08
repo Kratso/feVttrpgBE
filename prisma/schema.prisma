@@ -60,6 +60,7 @@ model Character {
   owner        User?            @relation(fields: [ownerId], references: [id])
   inventory    CharacterItem[]
   skills       CharacterSkill[]
+  tokens       Token[]
 }
 
 model GameClass {
@@ -192,7 +193,11 @@ model Token {
   color     String   @default("#f43f5e")
   createdAt DateTime @default(now())
   mapId     String
-  map       Map      @relation(fields: [mapId], references: [id])
+  characterId String
+  map        Map      @relation(fields: [mapId], references: [id])
+  character  Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@unique([characterId])
 }
 
 enum CampaignRole {

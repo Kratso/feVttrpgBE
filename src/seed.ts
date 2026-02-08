@@ -95,11 +95,15 @@ async function seed() {
       update: {
         description: entry.description ?? null,
         activation: entry.activacion ?? entry.activation ?? null,
+        bonusStats: entry.bonusStats ?? null,
+        bonusDerived: entry.bonusDerived ?? null,
       },
       create: {
         name: entry.name,
         description: entry.description ?? null,
         activation: entry.activacion ?? entry.activation ?? null,
+        bonusStats: entry.bonusStats ?? null,
+        bonusDerived: entry.bonusDerived ?? null,
       },
     });
   }

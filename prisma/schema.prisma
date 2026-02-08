@@ -89,6 +89,8 @@ model Skill {
   name        String           @unique
   description String?
   activation  String?
+  bonusStats  Json?
+  bonusDerived Json?
   characters  CharacterSkill[]
 }
 

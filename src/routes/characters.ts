@@ -51,6 +51,49 @@ const skillAddSchema = z.object({
   skillId: z.string().min(1),
 });
 
+const normalizeClassSkills = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((entry) => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+};
+
+const addMissingClassSkills = async (characterId: string, className: string | null) => {
+  if (!className) return;
+
+  const gameClass = await prisma.gameClass.findUnique({
+    where: { name: className },
+    select: { skills: true },
+  });
+
+  if (!gameClass) return;
+
+  const classSkills = normalizeClassSkills(gameClass.skills);
+  if (classSkills.length === 0) return;
+
+  const availableSkills = await prisma.skill.findMany({
+    where: { name: { in: classSkills } },
+    select: { id: true },
+  });
+
+  if (availableSkills.length === 0) return;
+
+  const existing = await prisma.characterSkill.findMany({
+    where: { characterId },
+    select: { skillId: true },
+  });
+
+  const existingIds = new Set(existing.map((entry) => entry.skillId));
+  const toCreate = availableSkills
+    .filter((entry) => !existingIds.has(entry.id))
+    .map((entry) => ({ characterId, skillId: entry.id }));
+
+  if (toCreate.length === 0) return;
+
+  await prisma.characterSkill.createMany({ data: toCreate, skipDuplicates: true });
+};
+
 export async function characterRoutes(fastify: FastifyInstance) {
   fastify.get("/campaigns/:id/characters", async (request, reply) => {
     const params = z.object({ id: z.string() }).parse(request.params);
@@ -95,6 +138,8 @@ export async function characterRoutes(fastify: FastifyInstance) {
       },
       include: { owner: { select: { id: true, displayName: true } } },
     });
+
+    await addMissingClassSkills(character.id, character.className ?? null);
 
     await writeAuditLog({
       entityType: "CHARACTER",
@@ -558,6 +603,8 @@ export async function characterRoutes(fastify: FastifyInstance) {
         currentHp: body.currentHp ?? existing.currentHp,
       },
     });
+
+    await addMissingClassSkills(character.id, character.className ?? null);
 
     await writeAuditLog({
       entityType: "CHARACTER",

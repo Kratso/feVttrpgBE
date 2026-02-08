@@ -55,9 +55,11 @@ model Character {
   exp          Int              @default(0)
   level        Int              @default(1)
   weaponSkills Json?
+  equippedWeaponItemId String?
   campaign     Campaign         @relation(fields: [campaignId], references: [id])
   class        GameClass?       @relation(fields: [classId], references: [id])
   owner        User?            @relation(fields: [ownerId], references: [id])
+  equippedWeaponItem CharacterItem? @relation("EquippedWeapon", fields: [equippedWeaponItemId], references: [id], onDelete: SetNull)
   inventory    CharacterItem[]
   skills       CharacterSkill[]
   tokens       Token[]
@@ -124,12 +126,14 @@ model CharacterItem {
   id          String    @id @default(cuid())
   characterId String
   itemId      String
-  equipped    Boolean   @default(false)
+  uses        Int?
+  sortOrder   Int
   character   Character @relation(fields: [characterId], references: [id])
   item        Item      @relation(fields: [itemId], references: [id])
+  equippedBy  Character? @relation("EquippedWeapon")
 
-  @@unique([characterId, itemId])
   @@index([characterId])
+  @@index([characterId, sortOrder])
 }
 
 model Map {

@@ -4,9 +4,19 @@ import { prisma } from "../plugins/db";
 import { getSessionUserId, requireCampaignMember, requireDM } from "../utils/auth";
 import { writeAuditLog } from "../utils/audit";
 
+const statsSchema = z.union([
+  z.record(z.string(), z.number()),
+  z.object({
+    baseStats: z.record(z.string(), z.number()).optional(),
+    growths: z.record(z.string(), z.number()).optional(),
+    bonusStats: z.record(z.string(), z.number()).optional(),
+    weaponRanks: z.record(z.string(), z.string()).optional(),
+  }),
+]);
+
 const characterSchema = z.object({
   name: z.string().min(2),
-  stats: z.record(z.string(), z.number()),
+  stats: statsSchema,
   ownerId: z.string().optional(),
   kind: z.enum(["PLAYER", "NPC", "ENEMY"]).optional(),
   className: z.string().optional(),
@@ -20,7 +30,7 @@ const characterSchema = z.object({
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
-  stats: z.record(z.string(), z.number()).optional(),
+  stats: statsSchema.optional(),
   ownerId: z.string().nullable().optional(),
   kind: z.enum(["PLAYER", "NPC", "ENEMY"]).optional(),
   className: z.string().nullable().optional(),
@@ -121,7 +131,9 @@ export async function characterRoutes(fastify: FastifyInstance) {
     const body = characterSchema.parse(request.body);
     const kind = body.kind ?? "PLAYER";
     const ownerId = kind === "PLAYER" ? body.ownerId ?? dm.userId : null;
-    const baseHp = (body.stats as Record<string, number>)?.hp ?? 0;
+    const baseStats = (body.stats as { baseStats?: Record<string, number> })?.baseStats;
+    const rawStats = body.stats as Record<string, number>;
+    const baseHp = baseStats?.hp ?? rawStats?.hp ?? 0;
 
     const character = await prisma.character.create({
       data: {

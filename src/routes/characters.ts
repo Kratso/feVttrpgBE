@@ -20,6 +20,12 @@ const characterSchema = z.object({
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
   stats: z.record(z.string(), z.number()).optional(),
+  ownerId: z.string().nullable().optional(),
+  kind: z.enum(["PLAYER", "NPC", "ENEMY"]).optional(),
+  className: z.string().nullable().optional(),
+  level: z.number().int().min(1).optional(),
+  exp: z.number().int().min(0).optional(),
+  weaponSkills: z.array(z.object({ weapon: z.string(), rank: z.string() })).optional(),
 });
 
 const inventoryAddSchema = z.object({
@@ -439,11 +445,19 @@ export async function characterRoutes(fastify: FastifyInstance) {
     }
 
     const body = updateSchema.parse(request.body);
+    const nextKind = body.kind ?? existing.kind;
+    const nextOwnerId = nextKind === "PLAYER" ? (body.ownerId ?? existing.ownerId) : null;
     const character = await prisma.character.update({
       where: { id: params.id },
       data: {
         name: body.name ?? existing.name,
         stats: body.stats ?? (existing.stats as Record<string, number>),
+        ownerId: nextOwnerId,
+        kind: nextKind,
+        className: body.className === undefined ? existing.className : body.className,
+        level: body.level ?? existing.level,
+        exp: body.exp ?? existing.exp,
+        weaponSkills: body.weaponSkills ?? (existing.weaponSkills as Array<{ weapon: string; rank: string }> | null),
       },
     });
 

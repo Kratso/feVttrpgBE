@@ -15,6 +15,7 @@ const characterSchema = z.object({
   weaponSkills: z
     .array(z.object({ weapon: z.string(), rank: z.string() }))
     .optional(),
+  currentHp: z.number().int().min(0).optional(),
 });
 
 const updateSchema = z.object({
@@ -26,6 +27,7 @@ const updateSchema = z.object({
   level: z.number().int().min(1).optional(),
   exp: z.number().int().min(0).optional(),
   weaponSkills: z.array(z.object({ weapon: z.string(), rank: z.string() })).optional(),
+  currentHp: z.number().int().min(0).optional(),
 });
 
 const inventoryAddSchema = z.object({
@@ -43,6 +45,10 @@ const inventoryOrderSchema = z.object({
 
 const equippedWeaponSchema = z.object({
   inventoryId: z.string().min(1).nullable(),
+});
+
+const skillAddSchema = z.object({
+  skillId: z.string().min(1),
 });
 
 export async function characterRoutes(fastify: FastifyInstance) {
@@ -72,6 +78,7 @@ export async function characterRoutes(fastify: FastifyInstance) {
     const body = characterSchema.parse(request.body);
     const kind = body.kind ?? "PLAYER";
     const ownerId = kind === "PLAYER" ? body.ownerId ?? dm.userId : null;
+    const baseHp = (body.stats as Record<string, number>)?.hp ?? 0;
 
     const character = await prisma.character.create({
       data: {
@@ -83,6 +90,7 @@ export async function characterRoutes(fastify: FastifyInstance) {
         level: body.level ?? 1,
         exp: body.exp ?? 0,
         weaponSkills: body.weaponSkills ?? undefined,
+        currentHp: body.currentHp ?? baseHp,
         campaignId: params.id,
       },
       include: { owner: { select: { id: true, displayName: true } } },
@@ -113,6 +121,10 @@ export async function characterRoutes(fastify: FastifyInstance) {
           orderBy: { sortOrder: "asc" },
         },
         equippedWeaponItem: { include: { item: true } },
+        skills: {
+          include: { skill: true },
+          orderBy: { skill: { name: "asc" } },
+        },
       },
     });
 
@@ -127,6 +139,80 @@ export async function characterRoutes(fastify: FastifyInstance) {
     }
 
     reply.send({ character });
+  });
+
+  fastify.post("/characters/:id/skills", async (request, reply) => {
+    const params = z.object({ id: z.string() }).parse(request.params);
+    const character = await prisma.character.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!character) {
+      reply.code(404).send({ error: "Character not found" });
+      return;
+    }
+
+    const dm = await requireDM(request, reply, character.campaignId);
+    if (!dm) {
+      return;
+    }
+
+    const body = skillAddSchema.parse(request.body);
+    const skill = await prisma.skill.findUnique({ where: { id: body.skillId } });
+    if (!skill) {
+      reply.code(404).send({ error: "Skill not found" });
+      return;
+    }
+
+    const existingSkill = await prisma.characterSkill.findUnique({
+      where: { characterId_skillId: { characterId: params.id, skillId: body.skillId } },
+    });
+
+    if (existingSkill) {
+      reply.code(400).send({ error: "Skill already added" });
+      return;
+    }
+
+    const characterSkill = await prisma.characterSkill.create({
+      data: {
+        characterId: params.id,
+        skillId: body.skillId,
+      },
+      include: { skill: true },
+    });
+
+    reply.send({ characterSkill });
+  });
+
+  fastify.delete("/characters/:id/skills/:characterSkillId", async (request, reply) => {
+    const params = z
+      .object({ id: z.string(), characterSkillId: z.string() })
+      .parse(request.params);
+    const character = await prisma.character.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!character) {
+      reply.code(404).send({ error: "Character not found" });
+      return;
+    }
+
+    const dm = await requireDM(request, reply, character.campaignId);
+    if (!dm) {
+      return;
+    }
+
+    const existing = await prisma.characterSkill.findUnique({
+      where: { id: params.characterSkillId },
+    });
+
+    if (!existing || existing.characterId !== params.id) {
+      reply.code(404).send({ error: "Skill not found" });
+      return;
+    }
+
+    await prisma.characterSkill.delete({ where: { id: params.characterSkillId } });
+    reply.send({ ok: true });
   });
 
   fastify.get("/characters/:id/inventory", async (request, reply) => {
@@ -408,6 +494,17 @@ export async function characterRoutes(fastify: FastifyInstance) {
         reply.code(400).send({ error: "Only weapons can be equipped" });
         return;
       }
+
+      const restriction =
+        inventoryItem.item.type?.toLowerCase() === "laguz"
+          ? inventoryItem.item.classRestriction
+          : null;
+      if (restriction && membership.role !== "DM" && character.className !== restriction) {
+        reply.code(403).send({
+          error: `Laguz weapons are restricted to class: ${restriction}`,
+        });
+        return;
+      }
     }
 
     const updated = await prisma.character.update({
@@ -458,6 +555,7 @@ export async function characterRoutes(fastify: FastifyInstance) {
         level: body.level ?? existing.level,
         exp: body.exp ?? existing.exp,
         weaponSkills: body.weaponSkills ?? (existing.weaponSkills as Array<{ weapon: string; rank: string }> | null),
+        currentHp: body.currentHp ?? existing.currentHp,
       },
     });
 
@@ -472,5 +570,47 @@ export async function characterRoutes(fastify: FastifyInstance) {
     });
 
     reply.send({ character });
+  });
+
+  fastify.patch("/characters/:id/hp", async (request, reply) => {
+    const params = z.object({ id: z.string() }).parse(request.params);
+    const character = await prisma.character.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!character) {
+      reply.code(404).send({ error: "Character not found" });
+      return;
+    }
+
+    const membership = await requireCampaignMember(request, reply, character.campaignId);
+    if (!membership) {
+      return;
+    }
+
+    const userId = getSessionUserId(request);
+    const canEdit = membership.role === "DM" || (character.ownerId && character.ownerId === userId);
+    if (!canEdit) {
+      reply.code(403).send({ error: "Forbidden" });
+      return;
+    }
+
+    const body = z.object({ currentHp: z.number().int().min(0) }).parse(request.body);
+    const updated = await prisma.character.update({
+      where: { id: params.id },
+      data: { currentHp: body.currentHp },
+    });
+
+    await writeAuditLog({
+      entityType: "CHARACTER",
+      entityId: params.id,
+      action: "HP_UPDATE",
+      before: { currentHp: character.currentHp },
+      after: { currentHp: body.currentHp },
+      campaignId: character.campaignId,
+      userId: membership.userId,
+    });
+
+    reply.send({ character: updated });
   });
 }

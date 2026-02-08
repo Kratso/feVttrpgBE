@@ -57,6 +57,7 @@ model Character {
   exp          Int              @default(0)
   level        Int              @default(1)
   weaponSkills Json?
+  currentHp    Int              @default(0)
   equippedWeaponItemId String?          @unique
   campaign     Campaign         @relation(fields: [campaignId], references: [id])
   class        GameClass?       @relation(fields: [classId], references: [id])
@@ -96,6 +97,7 @@ model Item {
   name          String          @unique
   type          String
   category      ItemCategory    @default(ITEM)
+  classRestriction String?
   damageType    DamageType?
   weaponRank    String?
   might         Int?

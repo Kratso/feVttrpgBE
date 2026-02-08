@@ -114,6 +114,7 @@ async function seed() {
     ...(itemData.light ?? []),
     ...(itemData.dark ?? []),
     ...(itemData.staff ?? []),
+    ...(itemData.laguz ?? []),
   ];
 
   for (const entry of itemBuckets) {
@@ -134,6 +135,7 @@ async function seed() {
       update: {
         type: entry.type ?? "item",
         category,
+        classRestriction: entry.class ?? null,
         damageType,
         weaponRank: entry.weaponRank ?? null,
         might: entry.mt ?? null,
@@ -154,6 +156,7 @@ async function seed() {
         name: entry.name,
         type: entry.type ?? "item",
         category,
+        classRestriction: entry.class ?? null,
         damageType,
         weaponRank: entry.weaponRank ?? null,
         might: entry.mt ?? null,
@@ -273,7 +276,9 @@ async function seed() {
     }
 
     if (entry.inventory?.length) {
-      for (const itemEntry of entry.inventory) {
+      await prisma.characterItem.deleteMany({ where: { characterId: character.id } });
+      let equippedWeaponItemId: string | null = null;
+      for (const [index, itemEntry] of entry.inventory.entries()) {
         const item = await prisma.item.upsert({
           where: { name: itemEntry.name },
           update: {
@@ -284,24 +289,25 @@ async function seed() {
             type: itemEntry.type ?? "item",
           },
         });
-
-        await prisma.characterItem.upsert({
-          where: {
-            characterId_itemId: {
-              characterId: character.id,
-              itemId: item.id,
-            },
-          },
-          update: {
-            equipped: itemEntry.equipped ?? false,
-          },
-          create: {
+        const sortOrder = Math.max(0, index);
+        const createdItem = await prisma.characterItem.create({
+          data: {
             characterId: character.id,
             itemId: item.id,
-            equipped: itemEntry.equipped ?? false,
+            sortOrder,
+            uses: itemEntry.uses ?? item.uses ?? null,
           },
         });
+
+        if (itemEntry.equipped) {
+          equippedWeaponItemId = createdItem.id;
+        }
       }
+
+      await prisma.character.update({
+        where: { id: character.id },
+        data: { equippedWeaponItemId },
+      });
     }
   }
 }

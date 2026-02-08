@@ -58,6 +58,16 @@ describe("token routes", () => {
       },
     });
 
+    const character = await prisma.character.create({
+      data: {
+        name: "Token Hero",
+        stats: { hp: 20 },
+        campaignId: campaign.id,
+        ownerId: user.id,
+        kind: "PLAYER",
+      },
+    });
+
     const tokenResponse = await app.inject({
       method: "POST",
       url: `/api/maps/${map.id}/tokens`,
@@ -66,6 +76,7 @@ describe("token routes", () => {
         label: "A",
         x: 1,
         y: 2,
+        characterId: character.id,
       },
     });
 
@@ -113,6 +124,16 @@ describe("token routes", () => {
       },
     });
 
+    const character = await prisma.character.create({
+      data: {
+        name: "Invalid Token Hero",
+        stats: { hp: 20 },
+        campaignId: campaign.id,
+        ownerId: user.id,
+        kind: "PLAYER",
+      },
+    });
+
     const response = await app.inject({
       method: "POST",
       url: `/api/maps/${map.id}/tokens`,
@@ -121,6 +142,7 @@ describe("token routes", () => {
         label: "",
         x: -1,
         y: -2,
+        characterId: character.id,
       },
     });
 
@@ -142,6 +164,7 @@ describe("token routes", () => {
         label: "A",
         x: 0,
         y: 0,
+        characterId: "missing-character",
       },
     });
 
@@ -245,6 +268,16 @@ describe("token routes", () => {
       },
     });
 
+    const character = await prisma.character.create({
+      data: {
+        name: "Player Token",
+        stats: { hp: 20 },
+        campaignId: campaign.id,
+        ownerId: user.id,
+        kind: "PLAYER",
+      },
+    });
+
     const response = await app.inject({
       method: "POST",
       url: `/api/maps/${map.id}/tokens`,
@@ -253,6 +286,7 @@ describe("token routes", () => {
         label: "B",
         x: 1,
         y: 1,
+        characterId: character.id,
       },
     });
 
@@ -336,9 +370,20 @@ describe("token routes", () => {
       },
     });
 
+    const character = await prisma.character.create({
+      data: {
+        name: "Update Player Token",
+        stats: { hp: 20 },
+        campaignId: campaign.id,
+        ownerId: user.id,
+        kind: "PLAYER",
+      },
+    });
+
     const token = await prisma.token.create({
       data: {
         mapId: map.id,
+        characterId: character.id,
         label: "T",
         x: 0,
         y: 0,
@@ -390,9 +435,20 @@ describe("token routes", () => {
       },
     });
 
+    const character = await prisma.character.create({
+      data: {
+        name: "Move Token",
+        stats: { hp: 20 },
+        campaignId: campaign.id,
+        ownerId: user.id,
+        kind: "PLAYER",
+      },
+    });
+
     const token = await prisma.token.create({
       data: {
         mapId: map.id,
+        characterId: character.id,
         label: "T",
         x: 0,
         y: 0,
@@ -446,9 +502,20 @@ describe("token routes", () => {
       },
     });
 
+    const character = await prisma.character.create({
+      data: {
+        name: "Label Token",
+        stats: { hp: 20 },
+        campaignId: campaign.id,
+        ownerId: user.id,
+        kind: "PLAYER",
+      },
+    });
+
     const token = await prisma.token.create({
       data: {
         mapId: map.id,
+        characterId: character.id,
         label: "X",
         x: 1,
         y: 1,

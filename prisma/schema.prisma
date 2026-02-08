@@ -57,7 +57,7 @@ model Character {
   exp          Int              @default(0)
   level        Int              @default(1)
   weaponSkills Json?
-  equippedWeaponItemId String?
+  equippedWeaponItemId String?          @unique
   campaign     Campaign         @relation(fields: [campaignId], references: [id])
   class        GameClass?       @relation(fields: [classId], references: [id])
   owner        User?            @relation(fields: [ownerId], references: [id])

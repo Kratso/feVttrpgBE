@@ -115,7 +115,6 @@ export async function mapRoutes(fastify: FastifyInstance) {
     const params = z.object({ id: z.string() }).parse(request.params);
     const map = await prisma.map.findUnique({
       where: { id: params.id },
-      include: { campaign: true },
     });
 
     if (!map) {

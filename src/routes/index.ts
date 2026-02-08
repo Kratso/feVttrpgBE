@@ -8,6 +8,7 @@ import { classRoutes } from "./classes";
 import { itemRoutes } from "./items";
 import { tileSetRoutes } from "./tilesets";
 import { presetRoutes } from "./presets";
+import { auditRoutes } from "./audit";
 
 export async function registerRoutes(fastify: FastifyInstance) {
   await fastify.register(authRoutes, { prefix: "/api" });
@@ -19,4 +20,5 @@ export async function registerRoutes(fastify: FastifyInstance) {
   await fastify.register(tokenRoutes, { prefix: "/api" });
   await fastify.register(tileSetRoutes, { prefix: "/api" });
   await fastify.register(presetRoutes, { prefix: "/api" });
+  await fastify.register(auditRoutes, { prefix: "/api" });
 }

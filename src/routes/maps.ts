@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../plugins/db";
 import { requireCampaignMember, requireDM } from "../utils/auth";
+import { writeAuditLog } from "../utils/audit";
 
 const tileGridSchema = z.array(z.array(z.string().nullable()));
 
@@ -97,6 +98,16 @@ export async function mapRoutes(fastify: FastifyInstance) {
       },
     });
 
+    await writeAuditLog({
+      entityType: "MAP",
+      entityId: map.id,
+      action: "MAP_CREATE",
+      before: null,
+      after: map,
+      campaignId: map.campaignId,
+      userId: dm.userId,
+    });
+
     reply.send({ map });
   });
 
@@ -165,6 +176,16 @@ export async function mapRoutes(fastify: FastifyInstance) {
         tileCountY,
         tileGrid: tileGrid ?? map.tileGrid,
       },
+    });
+
+    await writeAuditLog({
+      entityType: "MAP",
+      entityId: updated.id,
+      action: "MAP_UPDATE",
+      before: map,
+      after: updated,
+      campaignId: updated.campaignId,
+      userId: dm.userId,
     });
 
     reply.send({ map: updated });

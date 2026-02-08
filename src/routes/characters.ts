@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../plugins/db";
 import { getSessionUserId, requireCampaignMember, requireDM } from "../utils/auth";
+import { writeAuditLog } from "../utils/audit";
 
 const characterSchema = z.object({
   name: z.string().min(2),
@@ -79,6 +80,16 @@ export async function characterRoutes(fastify: FastifyInstance) {
         campaignId: params.id,
       },
       include: { owner: { select: { id: true, displayName: true } } },
+    });
+
+    await writeAuditLog({
+      entityType: "CHARACTER",
+      entityId: character.id,
+      action: "CHARACTER_CREATE",
+      before: null,
+      after: character,
+      campaignId: character.campaignId,
+      userId: dm.userId,
     });
 
     reply.send({ character });
@@ -183,6 +194,16 @@ export async function characterRoutes(fastify: FastifyInstance) {
       include: { item: true },
     });
 
+    await writeAuditLog({
+      entityType: "CHARACTER",
+      entityId: params.id,
+      action: "INVENTORY_ADD",
+      before: null,
+      after: inventoryItem,
+      campaignId: character.campaignId,
+      userId: dm.userId,
+    });
+
     reply.send({ inventoryItem });
   });
 
@@ -212,6 +233,15 @@ export async function characterRoutes(fastify: FastifyInstance) {
     }
 
     await prisma.characterItem.delete({ where: { id: params.inventoryId } });
+    await writeAuditLog({
+      entityType: "CHARACTER",
+      entityId: params.id,
+      action: "INVENTORY_REMOVE",
+      before: inventoryItem,
+      after: null,
+      campaignId: character.campaignId,
+      userId: dm.userId,
+    });
     reply.send({ ok: true });
   });
 
@@ -256,6 +286,16 @@ export async function characterRoutes(fastify: FastifyInstance) {
       include: { item: true },
     });
 
+    await writeAuditLog({
+      entityType: "CHARACTER",
+      entityId: params.id,
+      action: "INVENTORY_UPDATE",
+      before: inventoryItem,
+      after: updated,
+      campaignId: character.campaignId,
+      userId: membership.userId,
+    });
+
     reply.send({ inventoryItem: updated });
   });
 
@@ -285,7 +325,8 @@ export async function characterRoutes(fastify: FastifyInstance) {
     const body = inventoryOrderSchema.parse(request.body);
     const inventory = await prisma.characterItem.findMany({
       where: { characterId: params.id },
-      select: { id: true },
+      select: { id: true, sortOrder: true },
+      orderBy: { sortOrder: "asc" },
     });
 
     if (inventory.length !== body.orderedIds.length) {
@@ -308,6 +349,16 @@ export async function characterRoutes(fastify: FastifyInstance) {
         })
       )
     );
+
+    await writeAuditLog({
+      entityType: "CHARACTER",
+      entityId: params.id,
+      action: "INVENTORY_REORDER",
+      before: inventory.map((entry) => entry.id),
+      after: body.orderedIds,
+      campaignId: character.campaignId,
+      userId: membership.userId,
+    });
 
     reply.send({ ok: true });
   });
@@ -358,6 +409,16 @@ export async function characterRoutes(fastify: FastifyInstance) {
       data: { equippedWeaponItemId: body.inventoryId },
     });
 
+    await writeAuditLog({
+      entityType: "CHARACTER",
+      entityId: params.id,
+      action: "EQUIPPED_WEAPON_UPDATE",
+      before: { equippedWeaponItemId: character.equippedWeaponItemId },
+      after: { equippedWeaponItemId: body.inventoryId },
+      campaignId: character.campaignId,
+      userId: membership.userId,
+    });
+
     reply.send({ character: updated });
   });
 
@@ -384,6 +445,16 @@ export async function characterRoutes(fastify: FastifyInstance) {
         name: body.name ?? existing.name,
         stats: body.stats ?? (existing.stats as Record<string, number>),
       },
+    });
+
+    await writeAuditLog({
+      entityType: "CHARACTER",
+      entityId: character.id,
+      action: "CHARACTER_UPDATE",
+      before: existing,
+      after: character,
+      campaignId: character.campaignId,
+      userId: dm.userId,
     });
 
     reply.send({ character });

@@ -16,6 +16,7 @@ model User {
   created      Campaign[]       @relation("CreatedCampaigns")
   campaigns    CampaignMember[]
   characters   Character[]
+  auditLogs    AuditLog[]
 }
 
 model Campaign {
@@ -29,6 +30,7 @@ model Campaign {
   maps        Map[]
   tileSets    TileSet[]
   tilePresets TilePreset[]
+  auditLogs   AuditLog[]
 }
 
 model CampaignMember {
@@ -204,6 +206,22 @@ model Token {
   @@unique([characterId])
 }
 
+model AuditLog {
+  id         String           @id @default(cuid())
+  entityType AuditEntityType
+  entityId   String
+  action     String
+  before     Json?
+  after      Json?
+  userId     String
+  campaignId String
+  createdAt  DateTime         @default(now())
+  user       User             @relation(fields: [userId], references: [id])
+  campaign   Campaign         @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId, entityType, entityId, createdAt])
+}
+
 enum CampaignRole {
   DM
   PLAYER
@@ -223,4 +241,9 @@ enum DamageType {
 enum ItemCategory {
   ITEM
   WEAPON
+}
+
+enum AuditEntityType {
+  MAP
+  CHARACTER
 }

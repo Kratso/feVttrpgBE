@@ -17,6 +17,7 @@ model User {
   campaigns    CampaignMember[]
   characters   Character[]
   auditLogs    AuditLog[]
+  rollLogs     MapRollLog[]
 }
 
 model Campaign {

@@ -158,6 +158,7 @@ model Map {
   tileGrid    Json?
   campaign    Campaign @relation(fields: [campaignId], references: [id])
   tokens      Token[]
+  rollLogs    MapRollLog[]
 }
 
 model TileSet {
@@ -227,6 +228,19 @@ model AuditLog {
   @@index([campaignId, entityType, entityId, createdAt])
 }
 
+model MapRollLog {
+  id        String   @id @default(cuid())
+  mapId     String
+  userId    String
+  type      RollType
+  result    Int
+  createdAt DateTime @default(now())
+  map       Map      @relation(fields: [mapId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([mapId, createdAt])
+}
+
 enum CampaignRole {
   DM
   PLAYER
@@ -251,4 +265,9 @@ enum ItemCategory {
 enum AuditEntityType {
   MAP
   CHARACTER
+}
+
+enum RollType {
+  REGULAR
+  COMBAT
 }

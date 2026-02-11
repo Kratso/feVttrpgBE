@@ -35,5 +35,7 @@ export function initSocket(fastify: FastifyInstance) {
     );
   });
 
+  (fastify as FastifyInstance & { io?: IOServer }).io = io;
+
   return io;
 }

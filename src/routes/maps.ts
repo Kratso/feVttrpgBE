@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../plugins/db";
 import { requireCampaignMember, requireDM } from "../utils/auth";
+import type { Server as IOServer } from "socket.io";
 import { writeAuditLog } from "../utils/audit";
 
 const tileGridSchema = z.array(z.array(z.string().nullable()));
@@ -33,6 +34,12 @@ const mapUpdateSchema = z.object({
   gridOffsetX: z.number().int().optional(),
   gridOffsetY: z.number().int().optional(),
 });
+
+const rollCreateSchema = z.object({
+  type: z.enum(["REGULAR", "COMBAT"]),
+});
+
+const rollDie = (sides: number) => Math.floor(Math.random() * sides) + 1;
 
 const buildEmptyGrid = (rows: number, cols: number) =>
   Array.from({ length: rows }, () => Array.from({ length: cols }, () => null));
@@ -128,6 +135,64 @@ export async function mapRoutes(fastify: FastifyInstance) {
     }
 
     reply.send({ map });
+  });
+
+  fastify.get("/maps/:id/rolls", async (request, reply) => {
+    const params = z.object({ id: z.string() }).parse(request.params);
+    const map = await prisma.map.findUnique({ where: { id: params.id } });
+
+    if (!map) {
+      reply.code(404).send({ error: "Map not found" });
+      return;
+    }
+
+    const membership = await requireCampaignMember(request, reply, map.campaignId);
+    if (!membership) {
+      return;
+    }
+
+    const rolls = await prisma.mapRollLog.findMany({
+      where: { mapId: params.id },
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { id: true, displayName: true } } },
+    });
+
+    reply.send({ rolls });
+  });
+
+  fastify.post("/maps/:id/rolls", async (request, reply) => {
+    const params = z.object({ id: z.string() }).parse(request.params);
+    const map = await prisma.map.findUnique({ where: { id: params.id } });
+
+    if (!map) {
+      reply.code(404).send({ error: "Map not found" });
+      return;
+    }
+
+    const membership = await requireCampaignMember(request, reply, map.campaignId);
+    if (!membership) {
+      return;
+    }
+
+    const body = rollCreateSchema.parse(request.body);
+    const rollA = rollDie(100);
+    const rollB = body.type === "COMBAT" ? rollDie(100) : null;
+    const result = body.type === "COMBAT" ? Math.round((rollA + (rollB ?? 0)) / 2) : rollA;
+
+    const roll = await prisma.mapRollLog.create({
+      data: {
+        mapId: params.id,
+        userId: membership.userId,
+        type: body.type,
+        result,
+      },
+      include: { user: { select: { id: true, displayName: true } } },
+    });
+
+    const io = (fastify as FastifyInstance & { io?: IOServer }).io;
+    io?.to(`map:${params.id}`).emit("roll:created", { roll });
+
+    reply.send({ roll });
   });
 
   fastify.put("/maps/:id", async (request, reply) => {

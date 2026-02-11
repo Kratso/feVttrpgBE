@@ -47,6 +47,7 @@ const inventoryAddSchema = z.object({
 
 const inventoryUpdateSchema = z.object({
   uses: z.number().int().min(0).nullable().optional(),
+  blessed: z.boolean().optional(),
 });
 
 const inventoryOrderSchema = z.object({
@@ -431,6 +432,7 @@ export async function characterRoutes(fastify: FastifyInstance) {
       where: { id: params.inventoryId },
       data: {
         uses: body.uses === undefined ? inventoryItem.uses : body.uses,
+        blessed: body.blessed === undefined ? inventoryItem.blessed : body.blessed,
       },
       include: { item: true },
     });

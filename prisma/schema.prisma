@@ -133,6 +133,7 @@ model CharacterItem {
   characterId String
   itemId      String
   uses        Int?
+  blessed     Boolean   @default(false)
   sortOrder   Int
   character   Character @relation(fields: [characterId], references: [id])
   item        Item      @relation(fields: [itemId], references: [id])

@@ -32,6 +32,7 @@ export async function truncateAll(prisma: PrismaClient) {
       "CharacterItem",
       "CharacterSkill",
       "Token",
+      "MapRollLog",
       "Map",
       "Character",
       "CampaignMember",

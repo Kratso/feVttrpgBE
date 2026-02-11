@@ -283,6 +283,123 @@ describe("map routes", () => {
     expect(response.statusCode).toBe(403);
   });
 
+  it("creates and lists roll logs for map members", async () => {
+    const { cookie, user } = await registerUser(app, {
+      email: "map-rolls@test.com",
+      password: "password123",
+      displayName: "Map Rolls",
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "Map Roll Campaign",
+        createdById: user.id,
+        members: {
+          create: {
+            userId: user.id,
+            role: "DM",
+          },
+        },
+      },
+    });
+
+    const map = await prisma.map.create({
+      data: {
+        name: "Roll Map",
+        imageUrl: "https://example.com/roll-map.png",
+        gridSizeX: 50,
+        gridSizeY: 50,
+        gridOffsetX: 0,
+        gridOffsetY: 0,
+        campaignId: campaign.id,
+      },
+    });
+
+    const rollA = await app.inject({
+      method: "POST",
+      url: `/api/maps/${map.id}/rolls`,
+      headers: { cookie },
+      payload: { type: "REGULAR" },
+    });
+
+    expect(rollA.statusCode).toBe(200);
+    expect(rollA.json().roll.type).toBe("REGULAR");
+    expect(rollA.json().roll.result).toBeGreaterThanOrEqual(1);
+    expect(rollA.json().roll.result).toBeLessThanOrEqual(100);
+
+    const rollB = await app.inject({
+      method: "POST",
+      url: `/api/maps/${map.id}/rolls`,
+      headers: { cookie },
+      payload: { type: "COMBAT" },
+    });
+
+    expect(rollB.statusCode).toBe(200);
+    expect(rollB.json().roll.type).toBe("COMBAT");
+    expect(rollB.json().roll.result).toBeGreaterThanOrEqual(1);
+    expect(rollB.json().roll.result).toBeLessThanOrEqual(100);
+
+    const list = await app.inject({
+      method: "GET",
+      url: `/api/maps/${map.id}/rolls`,
+      headers: { cookie },
+    });
+
+    expect(list.statusCode).toBe(200);
+    expect(list.json().rolls).toHaveLength(2);
+    expect(list.json().rolls[0].id).toBe(rollB.json().roll.id);
+  });
+
+  it("prevents non-members from creating roll logs", async () => {
+    const { cookie } = await registerUser(app, {
+      email: "map-rolls-forbidden@test.com",
+      password: "password123",
+      displayName: "Map Rolls Forbidden",
+    });
+
+    const owner = await prisma.user.create({
+      data: {
+        email: "map-rolls-owner@test.com",
+        displayName: "Map Rolls Owner",
+        passwordHash: "hash",
+      },
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "Map Roll Forbidden Campaign",
+        createdById: owner.id,
+        members: {
+          create: {
+            userId: owner.id,
+            role: "DM",
+          },
+        },
+      },
+    });
+
+    const map = await prisma.map.create({
+      data: {
+        name: "Roll Map Forbidden",
+        imageUrl: "https://example.com/roll-map.png",
+        gridSizeX: 50,
+        gridSizeY: 50,
+        gridOffsetX: 0,
+        gridOffsetY: 0,
+        campaignId: campaign.id,
+      },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/maps/${map.id}/rolls`,
+      headers: { cookie },
+      payload: { type: "REGULAR" },
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
   it("returns map details for campaign members", async () => {
     const { cookie, user } = await registerUser(app, {
       email: "map-detail@test.com",

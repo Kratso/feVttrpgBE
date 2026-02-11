@@ -241,6 +241,68 @@ describe("character routes", () => {
     expect(response.json().character.ownerId).toBeNull();
   });
 
+  it("updates blessed flag on inventory items", async () => {
+    const { cookie, user } = await registerUser(app, {
+      email: "character-blessed@test.com",
+      password: "password123",
+      displayName: "Character Blessed",
+    });
+
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: "Blessed Campaign",
+        createdById: user.id,
+        members: {
+          create: {
+            userId: user.id,
+            role: "DM",
+          },
+        },
+      },
+    });
+
+    const item = await prisma.item.create({
+      data: {
+        name: "Blessed Blade",
+        type: "sword",
+        category: "WEAPON",
+        might: 5,
+        hit: 80,
+        weight: 3,
+      },
+    });
+
+    const character = await prisma.character.create({
+      data: {
+        name: "Titania",
+        stats: { hp: 24 },
+        kind: "PLAYER",
+        campaignId: campaign.id,
+        ownerId: user.id,
+      },
+    });
+
+    const addResponse = await app.inject({
+      method: "POST",
+      url: `/api/characters/${character.id}/inventory`,
+      headers: { cookie },
+      payload: { itemId: item.id },
+    });
+
+    expect(addResponse.statusCode).toBe(200);
+    const inventoryId = addResponse.json().inventoryItem.id as string;
+
+    const updateResponse = await app.inject({
+      method: "PATCH",
+      url: `/api/characters/${character.id}/inventory/${inventoryId}`,
+      headers: { cookie },
+      payload: { blessed: true },
+    });
+
+    expect(updateResponse.statusCode).toBe(200);
+    expect(updateResponse.json().inventoryItem.blessed).toBe(true);
+  });
+
   it("updates a character", async () => {
     const { cookie, user } = await registerUser(app, {
       email: "character-update@test.com",

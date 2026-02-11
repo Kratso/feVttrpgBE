@@ -22,7 +22,12 @@ export function initSocket(fastify: FastifyInstance) {
           where: { id: tokenId },
           data: { x, y },
           include: {
-            character: { include: { owner: { select: { id: true, displayName: true } } } },
+            character: {
+              include: {
+                owner: { select: { id: true, displayName: true } },
+                equippedWeaponItem: { include: { item: true } },
+              },
+            },
           },
         });
         io.to(`map:${mapId}`).emit("token:moved", { token });

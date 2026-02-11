@@ -37,7 +37,12 @@ export async function tokenRoutes(fastify: FastifyInstance) {
       where: { mapId: params.id },
       orderBy: { createdAt: "asc" },
       include: {
-        character: { include: { owner: { select: { id: true, displayName: true } } } },
+        character: {
+          include: {
+            owner: { select: { id: true, displayName: true } },
+            equippedWeaponItem: { include: { item: true } },
+          },
+        },
       },
     });
 
@@ -86,7 +91,12 @@ export async function tokenRoutes(fastify: FastifyInstance) {
         characterId: body.characterId,
       },
       include: {
-        character: { include: { owner: { select: { id: true, displayName: true } } } },
+        character: {
+          include: {
+            owner: { select: { id: true, displayName: true } },
+            equippedWeaponItem: { include: { item: true } },
+          },
+        },
       },
     });
 
@@ -140,7 +150,12 @@ export async function tokenRoutes(fastify: FastifyInstance) {
         characterId: body.characterId ?? existing.characterId,
       },
       include: {
-        character: { include: { owner: { select: { id: true, displayName: true } } } },
+        character: {
+          include: {
+            owner: { select: { id: true, displayName: true } },
+            equippedWeaponItem: { include: { item: true } },
+          },
+        },
       },
     });
 
